@@ -1,0 +1,64 @@
+{
+  "@@locale": "en",
+
+  "scan": "Scan",
+  "settings": "Settings",
+  "amountHint": "0",
+
+  "ratesLoadError": "Couldn’t load rates. Check your connection.",
+  "offlineFrom": "Offline — showing rates from {date}",
+  "@offlineFrom": { "placeholders": { "date": { "type": "String" } } },
+
+  "rateLine": "1 {from} = {rate} {to}",
+  "@rateLine": {
+    "placeholders": {
+      "from": { "type": "String" },
+      "rate": { "type": "String" },
+      "to": { "type": "String" }
+    }
+  },
+  "updatedJustNow": "Updated just now",
+  "updatedMinutes": "Updated {count, plural, =1{1 min ago} other{{count} min ago}}",
+  "@updatedMinutes": { "placeholders": { "count": { "type": "int" } } },
+  "updatedHours": "Updated {count, plural, =1{1 h ago} other{{count} h ago}}",
+  "@updatedHours": { "placeholders": { "count": { "type": "int" } } },
+  "updatedDays": "Updated {count, plural, =1{1 d ago} other{{count} d ago}}",
+  "@updatedDays": { "placeholders": { "count": { "type": "int" } } },
+
+  "searchCurrency": "Search currency",
+  "popular": "Popular",
+  "recent": "Recent",
+  "allCurrencies": "All currencies",
+  "changeCurrencyHint": "Currency {name}, tap to change",
+  "@changeCurrencyHint": { "placeholders": { "name": { "type": "String" } } },
+  "swapCurrencies": "Swap currencies",
+
+  "appearance": "Appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
+  "language": "Language",
+  "defaultCurrencies": "Default currencies",
+  "convertFrom": "Convert from",
+  "convertTo": "Convert to",
+  "exchangeRates": "Exchange Rates",
+  "loadingRates": "Loading rates…",
+  "failedRates": "Failed to load rates",
+  "refresh": "Refresh",
+  "baseLabel": "Base: {code}",
+  "@baseLabel": { "placeholders": { "code": { "type": "String" } } },
+  "about": "About",
+
+  "cameraAccessTitle": "Camera access needed",
+  "cameraAccessBody": "LensRate reads price tags through the camera and shows the converted price on top. Enable camera access to start scanning.",
+  "openSettings": "Open Settings",
+  "cameraUnavailable": "Camera unavailable",
+  "noPricesFound": "No prices found — aim at a price tag and tap scan again",
+  "fromTag": "From (tag)",
+  "toYours": "To (yours)",
+  "torch": "Torch",
+  "convert": "Convert",
+  "back": "Back",
+  "scanPrices": "Scan prices",
+  "scanAgain": "Scan again"
+}

@@ -1,0 +1,51 @@
+{
+  "@@locale": "ru",
+
+  "scan": "Сканировать",
+  "settings": "Настройки",
+  "amountHint": "0",
+
+  "ratesLoadError": "Не удалось загрузить курсы. Проверьте соединение.",
+  "offlineFrom": "Офлайн — курсы от {date}",
+
+  "rateLine": "1 {from} = {rate} {to}",
+  "updatedJustNow": "Обновлено только что",
+  "updatedMinutes": "Обновлено {count, plural, one{{count} минуту} few{{count} минуты} many{{count} минут} other{{count} минуты}} назад",
+  "updatedHours": "Обновлено {count, plural, one{{count} час} few{{count} часа} many{{count} часов} other{{count} часа}} назад",
+  "updatedDays": "Обновлено {count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}} назад",
+
+  "searchCurrency": "Поиск валюты",
+  "popular": "Популярные",
+  "recent": "Недавние",
+  "allCurrencies": "Все валюты",
+  "changeCurrencyHint": "Валюта {name}, нажмите чтобы изменить",
+  "swapCurrencies": "Поменять валюты местами",
+
+  "appearance": "Оформление",
+  "themeLight": "Светлая",
+  "themeDark": "Тёмная",
+  "themeSystem": "Системная",
+  "language": "Язык",
+  "defaultCurrencies": "Валюты по умолчанию",
+  "convertFrom": "Из валюты",
+  "convertTo": "В валюту",
+  "exchangeRates": "Курсы валют",
+  "loadingRates": "Загрузка курсов…",
+  "failedRates": "Не удалось загрузить курсы",
+  "refresh": "Обновить",
+  "baseLabel": "База: {code}",
+  "about": "О приложении",
+
+  "cameraAccessTitle": "Нужен доступ к камере",
+  "cameraAccessBody": "LensRate считывает ценники через камеру и показывает конвертированную цену поверх них. Разрешите доступ к камере, чтобы начать сканирование.",
+  "openSettings": "Открыть настройки",
+  "cameraUnavailable": "Камера недоступна",
+  "noPricesFound": "Цены не найдены — наведите на ценник и сканируйте снова",
+  "fromTag": "Из (ценник)",
+  "toYours": "В (ваша)",
+  "torch": "Фонарик",
+  "convert": "Конвертер",
+  "back": "Назад",
+  "scanPrices": "Сканировать цены",
+  "scanAgain": "Сканировать снова"
+}
