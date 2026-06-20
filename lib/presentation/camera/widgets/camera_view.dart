@@ -18,6 +18,7 @@ class CameraView extends StatelessWidget {
   const CameraView({
     required this.controller,
     required this.isFrozen,
+    required this.liveMode,
     required this.busy,
     required this.torchOn,
     required this.capturedPath,
@@ -37,6 +38,7 @@ class CameraView extends StatelessWidget {
 
   final CameraController controller;
   final bool isFrozen;
+  final bool liveMode;
   final bool busy;
   final bool torchOn;
   final String? capturedPath;
@@ -63,10 +65,11 @@ class CameraView extends StatelessWidget {
         else
           _PreviewCover(controller: controller),
 
-        // Layer 1: AR overlays on the frozen frame.
-        if (isFrozen && imageSize != null)
+        // Layer 1: AR price pills — over the frozen still (tap-to-scan) or over
+        // the live preview (live scan). The "no prices" hint is tap-to-scan only.
+        if ((isFrozen || liveMode) && imageSize != null)
           PriceOverlay(prices: prices, imageSize: imageSize!),
-        if (isFrozen && prices.isEmpty) const _NoPricesHint(),
+        if (isFrozen && !liveMode && prices.isEmpty) const _NoPricesHint(),
 
         // Layer 2: top bar with From ⇄ To chips.
         SafeArea(
@@ -92,6 +95,8 @@ class CameraView extends StatelessWidget {
               child: CameraControls(
                 torchOn: torchOn,
                 isFrozen: isFrozen,
+                // Live mode scans continuously — no manual scan button.
+                showScan: !liveMode,
                 onToggleTorch: onToggleTorch,
                 onScan: onScan,
                 onOpenConverter: onOpenConverter,

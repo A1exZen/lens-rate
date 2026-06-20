@@ -13,13 +13,29 @@ exchange rates (and those are cached for offline use).
 
 ## Pipeline (tap-to-scan)
 
-1. Point the camera and tap the round **Scan** button.
+> **Two modes.** **Tap-to-scan** (default) is below. **Live scan** is an optional
+> mode toggled in **Settings → Camera**: frames stream through OCR continuously
+> (throttled ~700 ms) and pills float over the *live* preview — no tap, no freeze.
+> It uses a lighter resolution for real-time speed and is best on printed tags.
+> Tap-to-scan remains the reliable baseline.
+>
+> **Live stabilisation** (`LiveStabilizer`) keeps the overlay calm. Per-frame OCR
+> of the same tag jitters (500 → 5.00 → 600), so live shows **one** pill — the
+> most central price — and *locks* it: the first detection appears immediately,
+> but switching to a different value needs it seen **2 frames in a row** (one-off
+> misreads are ignored). When detections stop, the last pill lingers ~1.5 s
+> before clearing, so a brief miss doesn't blink it and you can steady the device.
+
+1. Point the camera at the price, then tap the round **Scan** button.
 2. `CameraController.takePicture()` captures a still at `ResolutionPreset.veryHigh`
    (higher resolution = sharper text = better recognition) and the frame freezes.
 3. ML Kit recognises text lines and their bounding boxes on the still.
-4. Each **line** of text is run through `PriceParser` to extract numbers.
+4. Each **line** of text is run through `PriceParser` to extract numbers. The
+   pill is anchored to the **numeric word boxes** of the line (union of elements
+   containing a digit), not the whole line, so it sits on the price itself.
 5. Each number is converted from its source currency to your target currency.
-6. The most price-like results are shown as floating pills over the tag.
+6. The most price-like results — ranked by **nearness to the frame centre**, plus
+   currency/decimal boosts — are shown as floating pills over the tag.
 7. Tap **Scan** again (the refresh icon) to return to the live preview.
 
 ## Number detection rules
@@ -42,6 +58,15 @@ Rules:
   `1,234.56` → 1234.56). A lone `,`/`.` with ≤2 trailing digits is treated as a
   decimal, otherwise as a thousands separator.
 
+**Noise filtering** (only when the line has *no* currency cue — a cue overrides
+these, so `199₽/кг` stays a price):
+
+- A number **immediately followed by a measurement unit** is dropped as a spec,
+  not a price: `kg, g, ml, l, m, cm, mm, шт, г, кг, мл, л, м, см, мм, %`. The unit
+  must be a whole token, so `100 грн` (UAH) is *not* mistaken for `100 г` (grams).
+- A **long uninterrupted digit run (≥ 7 digits)** with no decimal is dropped as a
+  barcode / SKU.
+
 ## Currency resolution (source currency)
 
 For each detected number, the source currency is decided in this order:
@@ -57,11 +82,16 @@ For each detected number, the source currency is decided in this order:
 
 ## Ranking & limits
 
-When several numbers are found, they're ranked so the real price wins:
+When several numbers are found, each gets a score and the highest win:
 
-1. Has an explicit currency cue (symbol/ISO) — highest priority
-2. Has a decimal part (looks like a price with cents)
-3. Larger amount
+```
+score = (1 − distanceToFrameCentre) × 4   // nearness to the aim reticle dominates
+      + 3  if it has a currency cue (symbol/ISO)
+      + 2  if it has a decimal part (cents)
+```
+
+So the price under the centre reticle is preferred; a currency cue or cents break
+ties. Distance is normalised by the image diagonal (0 = dead centre, 1 = corner).
 
 At most **3 pills** are shown at once (docs §14.1) to avoid clutter.
 
@@ -84,8 +114,10 @@ hidden) so the preview is edge-to-edge with no cut-outs.
 - **Orientation:** mapping assumes the captured image and ML Kit agree on
   orientation (true for normal portrait captures). Unusual EXIF orientations
   could offset pills.
-- **Live overlay (P1):** currently tap-to-scan only. A continuous `startImageStream`
-  mode is the planned upgrade (docs §3.1, §6.3).
+- **Live scan (experimental):** opt-in via Settings → Camera. Uses
+  `startImageStream` with throttled OCR over the live preview. Coordinate
+  alignment relies on the device held upright (back camera); odd orientations may
+  offset pills. Handwriting and stylised tags stay unreliable in either mode.
 - **Ambiguous symbols:** `$` always resolves to USD, `¥` to JPY — set **From**
   manually for CAD/AUD/CNY etc.
 - **Stylised / blurry tags** may not recognise; use the manual converter as a

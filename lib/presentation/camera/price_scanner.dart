@@ -27,15 +27,33 @@ class RawDetection {
 /// (docs §6.3). Created once and reused; call [dispose] when done.
 class PriceScanner {
   final TextRecognizer _recognizer = TextRecognizer();
+  static final _hasDigit = RegExp(r'\d');
 
-  Future<List<RawDetection>> scan(String imagePath) async {
-    final input = InputImage.fromFilePath(imagePath);
+  /// Scans a captured still file (tap-to-scan).
+  Future<List<RawDetection>> scan(String imagePath) =>
+      _process(InputImage.fromFilePath(imagePath));
+
+  /// Scans a streamed frame already built into an [InputImage] (live scan).
+  Future<List<RawDetection>> scanInput(InputImage input) => _process(input);
+
+  Future<List<RawDetection>> _process(InputImage input) async {
     final recognized = await _recognizer.processImage(input);
 
     final detections = <RawDetection>[];
     for (final block in recognized.blocks) {
       for (final line in block.lines) {
-        final box = line.boundingBox;
+        // Anchor to the numeric part of the line, not the whole line: union the
+        // boxes of word elements that contain a digit. This keeps the pill on
+        // the price, not the product name beside it. Falls back to the line box.
+        Rect? numericBox;
+        for (final el in line.elements) {
+          if (_hasDigit.hasMatch(el.text)) {
+            numericBox = numericBox == null
+                ? el.boundingBox
+                : numericBox.expandToInclude(el.boundingBox);
+          }
+        }
+        final box = numericBox ?? line.boundingBox;
         for (final price in PriceParser.parseAll(line.text)) {
           detections.add(RawDetection(
             rect: box,

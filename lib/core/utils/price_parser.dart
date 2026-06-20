@@ -30,6 +30,15 @@ abstract final class PriceParser {
   static final _symbolRe = RegExp(r'[$€£¥₽₴₩₹฿₺]|zł');
   static final _isoRe = RegExp(r'\b([A-Z]{3})\b');
 
+  // A measurement unit directly after a number (weight/volume/quantity/percent)
+  // → it's a spec, not a price. The negative lookahead stops a unit from eating
+  // part of a longer word (e.g. "г" must not match the "г" in "грн" = UAH).
+  static final _unitRe = RegExp(
+    r'^(?:kg|cm|mm|ml|кг|мл|мм|см|шт|g|l|m|г|л|м|%)(?![\p{L}])',
+    unicode: true,
+    caseSensitive: false,
+  );
+
   /// All price-like numbers in [text]. The currency [code] is taken from a
   /// symbol or ISO code found anywhere in the same line, or null if none.
   static List<PriceMatch> parseAll(String text) {
@@ -44,6 +53,17 @@ abstract final class PriceParser {
       // Count any number as a possible price. Whether it has a decimal part or a
       // currency cue is kept so the camera can rank the most price-like first.
       final hasDecimal = RegExp(r'[.,]\d{1,2}$').hasMatch(raw);
+
+      // With no currency cue on the line, drop obvious non-prices to cut noise:
+      // numbers followed by a unit (weight/volume/qty/%) and long digit runs
+      // (barcodes / SKUs). A currency cue overrides this — "199₽/кг" is a price.
+      if (lineCode == null) {
+        if (_unitRe.hasMatch(text.substring(m.end).trimLeft())) continue;
+        if (!hasDecimal && raw.replaceAll(RegExp(r'[^0-9]'), '').length >= 7) {
+          continue;
+        }
+      }
+
       matches.add((amount: amount, code: lineCode, hasDecimal: hasDecimal));
     }
     return matches;

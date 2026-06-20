@@ -255,9 +255,13 @@ coordinate mismatch):
 2. User taps Scan → `takePicture()` captures a still and the frame is frozen
 3. `InputImage.fromFilePath()` built from the captured file
 4. `TextRecognizer.processImage()` runs on-device (ML Kit)
-5. `PriceParser` applied to recognised text lines to find price + currency cue
-6. Source currency auto-detected from symbol/ISO code; rate applied → converted
-7. Bounding boxes mapped (BoxFit.cover transform) onto the frozen still and
+5. `PriceParser` applied to recognised text lines to find price + currency cue;
+   plain numbers followed by a unit (weight/volume/qty/%) or long barcode-like
+   digit runs are filtered out as noise (see [`ocr_scanning.md`](ocr_scanning.md))
+6. Source currency auto-detected from symbol/ISO code; rate applied → converted.
+   Results are ranked by nearness to the frame centre, then currency/decimal cues
+7. Bounding boxes (tightened to the numeric word boxes) mapped (BoxFit.cover
+   transform) onto the frozen still and
    rendered as **positioned pill widgets** (`PriceOverlay`), not a CustomPainter —
    richer styling per §14.1 and easier text layout. Max 3 overlays.
 8. Tap Scan again to return to live preview.
@@ -270,8 +274,11 @@ Android builds the codec returns raw sensor dims (landscape) without EXIF
 correction. Guard in `_decodeSize`: if `sensorOrientation` is 90 or 270 and
 the decoded width > height, swap w/h so all three coordinate spaces agree.
 
-**P1 upgrade — live overlay:** `startImageStream()` emits `CameraImage` ~every
-100ms; same detection runs per frame with a CustomPainter for the bounding boxes.
+**Live scan (optional, experimental):** toggled in Settings → Camera. Implemented
+via `startImageStream()`; each streamed `CameraImage` is converted to an ML Kit
+`InputImage` (`buildLiveFrame`), OCR'd on a ~700 ms throttle, and the converted
+pills float over the **live** preview (no freeze). Uses a lighter resolution for
+real-time speed. Tap-to-scan stays the default reliable path.
 
 ```dart
 // Price detection regex (PriceParser) — needs a currency cue (symbol or ISO)

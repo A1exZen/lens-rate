@@ -60,5 +60,8 @@
   "convert": "Convert",
   "back": "Back",
   "scanPrices": "Scan prices",
-  "scanAgain": "Scan again"
+  "scanAgain": "Scan again",
+  "camera": "Camera",
+  "liveScan": "Live scan",
+  "liveScanHint": "Recognise prices continuously without tapping. Experimental — works best on printed price tags."
 }

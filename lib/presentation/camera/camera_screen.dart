@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +13,13 @@ import '../../data/rates_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../converter/converter_provider.dart';
 import '../currency_selector/currency_selector_sheet.dart';
+import '../settings/live_scan_provider.dart';
 import 'detected_price.dart';
+import 'live_frame_converter.dart';
+import 'live_stabilizer.dart';
+import 'price_converter.dart';
 import 'price_scanner.dart';
+import 'still_image_size.dart';
 import 'widgets/camera_permission_view.dart';
 import 'widgets/camera_view.dart';
 
@@ -37,6 +41,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   _Status _status = _Status.initializing;
   bool _torchOn = false;
   bool _busy = false;
+
+  // Live-scan state: when on, frames stream through OCR continuously.
+  bool _live = false;
+  bool _processing = false;
+  DateTime _lastFrame = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // Scan no more often than this; temporal smoothing/locking lives in the
+  // stabilizer so a single central price stays put instead of flipping between
+  // per-frame OCR misreads (docs §6.3).
+  static const _liveThrottle = Duration(milliseconds: 700);
+  final LiveStabilizer _stabilizer = LiveStabilizer();
 
   // Frozen-frame state (null = live preview).
   String? _capturedPath;
@@ -90,18 +105,29 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
+      final live = ref.read(liveScanEnabledProvider);
       final controller = CameraController(
         back,
-        // Higher resolution → sharper text → noticeably better OCR (docs §6.3).
-        ResolutionPreset.veryHigh,
+        // Live streams every frame → a lighter preset keeps OCR real-time;
+        // tap-to-scan affords veryHigh for the sharpest single still (docs §6.3).
+        live ? ResolutionPreset.high : ResolutionPreset.veryHigh,
         enableAudio: false,
+        // Single-plane formats ML Kit can read directly from a stream.
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.bgra8888,
       );
       await controller.initialize();
       if (!mounted) return;
       setState(() {
         _controller = controller;
         _status = _Status.ready;
+        _live = live;
       });
+      if (live) {
+        _stabilizer.reset();
+        await controller.startImageStream(_onFrame);
+      }
     } catch (_) {
       // Any failure (missing plugin, no camera, denied hardware) → error state,
       // never leave the spinner running forever.
@@ -110,6 +136,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Future<void> _scan() async {
+    if (_live) return; // live mode scans continuously — no manual capture
     if (_isFrozen) {
       setState(() {
         _capturedPath = null;
@@ -124,9 +151,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     setState(() => _busy = true);
     try {
       final file = await controller.takePicture();
-      final size = await _decodeSize(file.path);
+      final size = await decodeUprightStillSize(
+          file.path, controller.description.sensorOrientation);
       final detections = await _scanner.scan(file.path);
-      final prices = _convert(detections);
+      final prices = _convert(detections, size);
 
       if (prices.isNotEmpty) HapticFeedback.lightImpact();
       if (!mounted) return;
@@ -143,60 +171,51 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
   }
 
-  Future<Size> _decodeSize(String path) async {
-    final bytes = await File(path).readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    var w = frame.image.width.toDouble();
-    var h = frame.image.height.toDouble();
-
-    // ML Kit fromFilePath() applies EXIF and returns boxes in display-space.
-    // Image.file also applies EXIF. But on some Android builds
-    // instantiateImageCodec returns raw sensor dims (landscape: w > h) without
-    // respecting EXIF. Guard: if sensor is rotated 90/270° and codec gave us a
-    // landscape image, swap so all three coordinate spaces agree.
-    final sensorOrientation = _controller!.description.sensorOrientation;
-    if ((sensorOrientation == 90 || sensorOrientation == 270) && w > h) {
-      final tmp = w;
-      w = h;
-      h = tmp;
-    }
-    return Size(w, h);
-  }
-
-  /// Converts each detection into the target currency. The source is the
-  /// currency detected on the tag, or the user-selected "From" when none was.
-  List<DetectedPrice> _convert(List<RawDetection> detections) {
+  /// Ranks + converts detections (delegates to [convertDetections]). Source is
+  /// the currency detected on the tag, or the selected "From" when none was.
+  List<DetectedPrice> _convert(List<RawDetection> detections, Size imageSize) {
     final rates = ref.read(ratesProvider).value;
     final state = ref.read(converterProvider);
     if (rates == null) return const [];
+    return convertDetections(
+      detections: detections,
+      imageSize: imageSize,
+      rates: rates,
+      from: state.from,
+      to: state.to,
+    );
+  }
 
-    // Rank the most price-like first: an explicit currency cue, then a decimal
-    // part, then the larger amount. PriceOverlay shows the top few.
-    final ranked = [...detections]..sort((a, b) {
-        final cue = (b.currencyCode != null ? 1 : 0)
-            .compareTo(a.currencyCode != null ? 1 : 0);
-        if (cue != 0) return cue;
-        final dec = (b.hasDecimal ? 1 : 0).compareTo(a.hasDecimal ? 1 : 0);
-        if (dec != 0) return dec;
-        return b.amount.compareTo(a.amount);
-      });
+  /// Live scanning: throttled OCR on streamed frames, overlaying prices on the
+  /// live preview without freezing (docs §6.3 P1). Drops frames while one is in
+  /// flight and rate-limits to keep the preview smooth.
+  Future<void> _onFrame(CameraImage image) async {
+    if (_processing) return;
+    if (DateTime.now().difference(_lastFrame) < _liveThrottle) return;
+    _processing = true;
+    try {
+      final controller = _controller;
+      if (controller == null) return;
+      final frame = buildLiveFrame(image, controller, controller.description);
+      if (frame == null) return;
+      final detections = await _scanner.scanInput(frame.input);
+      final prices = _convert(detections, frame.uprightSize);
+      if (!mounted) return;
 
-    final prices = <DetectedPrice>[];
-    for (final d in ranked) {
-      final source = d.currencyCode ?? state.from;
-      if (source == state.to) continue; // nothing to convert
-      final rate = rates.getRate(from: source, to: state.to);
-      if (rate == 0) continue; // unknown currency — skip rather than show 0
-      prices.add(DetectedPrice(
-        rect: d.rect,
-        originalAmount: d.amount,
-        sourceCurrency: source,
-        convertedAmount: d.amount * rate,
-        targetCurrency: state.to,
-      ));
+      // Smoothing/locking decides what (if anything) to show — see LiveStabilizer.
+      if (_stabilizer.update(prices, DateTime.now())) {
+        setState(() {
+          _imageSize = frame.uprightSize;
+          _detections = detections;
+          _prices = _stabilizer.shown;
+        });
+      }
+    } catch (_) {
+      // Skip an unprocessable frame; the next one will try again.
+    } finally {
+      _lastFrame = DateTime.now();
+      _processing = false;
     }
-    return prices;
   }
 
   Future<void> _toggleTorch() async {
@@ -225,8 +244,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   /// Re-run the conversion on the frozen frame after a currency change, so the
   /// overlays update without needing another capture.
   void _rescore() {
-    if (!_isFrozen) return;
-    setState(() => _prices = _convert(_detections));
+    if (!_isFrozen || _imageSize == null) return;
+    setState(() => _prices = _convert(_detections, _imageSize!));
   }
 
   @override
@@ -250,6 +269,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return CameraView(
       controller: _controller!,
       isFrozen: _isFrozen,
+      liveMode: _live,
       busy: _busy,
       torchOn: _torchOn,
       capturedPath: _capturedPath,

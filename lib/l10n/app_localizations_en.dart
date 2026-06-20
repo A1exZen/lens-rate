@@ -167,4 +167,14 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get scanAgain => 'Scan again';
+
+  @override
+  String get camera => 'Camera';
+
+  @override
+  String get liveScan => 'Live scan';
+
+  @override
+  String get liveScanHint =>
+      'Recognise prices continuously without tapping. Experimental — works best on printed price tags.';
 }

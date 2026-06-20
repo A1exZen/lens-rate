@@ -348,6 +348,24 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Scan again'**
   String get scanAgain;
+
+  /// No description provided for @camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get camera;
+
+  /// No description provided for @liveScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Live scan'**
+  String get liveScan;
+
+  /// No description provided for @liveScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognise prices continuously without tapping. Experimental — works best on printed price tags.'**
+  String get liveScanHint;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

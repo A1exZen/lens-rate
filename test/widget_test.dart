@@ -18,7 +18,11 @@ void main() {
         child: const LensRateApp(),
       ),
     );
-    await tester.pump();
+    // Advance past the animated splash screen onto the Converter home.
+    await tester.pump(); // build splash
+    await tester.pump(const Duration(milliseconds: 1800)); // splash delay → go
+    await tester.pump(); // begin route transition
+    await tester.pump(const Duration(milliseconds: 500)); // finish fade
 
     expect(find.text('LensRate'), findsOneWidget);
     expect(find.text('Scan'), findsOneWidget); // FAB → camera

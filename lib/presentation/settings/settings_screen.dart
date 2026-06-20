@@ -9,6 +9,7 @@ import '../../domain/entities/currency.dart';
 import '../../l10n/app_localizations.dart';
 import '../currency_selector/currency_selector_sheet.dart';
 import '../converter/converter_provider.dart';
+import 'live_scan_provider.dart';
 import 'locale_provider.dart';
 import 'theme_mode_provider.dart';
 
@@ -44,6 +45,17 @@ class SettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: _LanguageToggle(current: locale.languageCode),
+          ),
+
+          // ── Camera ───────────────────────────────────────────────────
+          _SectionHeader(l.camera),
+          SwitchListTile(
+            secondary: const Icon(Icons.videocam_outlined),
+            title: Text(l.liveScan),
+            subtitle: Text(l.liveScanHint, style: AppTextStyles.caption),
+            value: ref.watch(liveScanEnabledProvider),
+            onChanged: (v) =>
+                ref.read(liveScanEnabledProvider.notifier).set(v),
           ),
 
           // ── Default currencies ───────────────────────────────────────

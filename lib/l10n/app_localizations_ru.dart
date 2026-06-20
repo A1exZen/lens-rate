@@ -174,4 +174,14 @@ class AppL10nRu extends AppL10n {
 
   @override
   String get scanAgain => 'Сканировать снова';
+
+  @override
+  String get camera => 'Камера';
+
+  @override
+  String get liveScan => 'Живое сканирование';
+
+  @override
+  String get liveScanHint =>
+      'Распознавать цены непрерывно, без нажатия. Экспериментально — лучше всего работает на печатных ценниках.';
 }

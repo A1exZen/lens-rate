@@ -39,7 +39,15 @@ Future<void> _pumpApp(WidgetTester tester) async {
       child: const LensRateApp(),
     ),
   );
-  await tester.pump();
+  await _skipSplash(tester);
+}
+
+/// Advances past the animated splash screen onto the Converter home.
+Future<void> _skipSplash(WidgetTester tester) async {
+  await tester.pump(); // build splash
+  await tester.pump(const Duration(milliseconds: 1800)); // splash delay → go
+  await tester.pump(); // begin route transition
+  await tester.pump(const Duration(milliseconds: 500)); // finish fade
 }
 
 void main() {

@@ -13,11 +13,13 @@ class CameraControls extends StatelessWidget {
     required this.onToggleTorch,
     required this.onScan,
     required this.onOpenConverter,
+    this.showScan = true,
     super.key,
   });
 
   final bool torchOn;
   final bool isFrozen;
+  final bool showScan;
   final VoidCallback onToggleTorch;
   final VoidCallback onScan;
   final VoidCallback onOpenConverter;
@@ -45,11 +47,12 @@ class CameraControls extends StatelessWidget {
             active: torchOn,
             onTap: onToggleTorch,
           ),
-          _ScanButton(
-            isFrozen: isFrozen,
-            label: isFrozen ? l.scanAgain : l.scanPrices,
-            onTap: onScan,
-          ),
+          if (showScan)
+            _ScanButton(
+              isFrozen: isFrozen,
+              label: isFrozen ? l.scanAgain : l.scanPrices,
+              onTap: onScan,
+            ),
           _IconAction(
             icon: Icons.calculate_outlined,
             label: l.convert,

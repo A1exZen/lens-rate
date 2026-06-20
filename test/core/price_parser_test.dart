@@ -51,5 +51,41 @@ void main() {
     test('ignores zero', () {
       expect(PriceParser.parseAll('0'), isEmpty);
     });
+
+    group('noise filtering (no currency cue)', () {
+      test('drops weight/volume/quantity units', () {
+        expect(PriceParser.parseAll('500 г'), isEmpty);
+        expect(PriceParser.parseAll('1,5 л'), isEmpty);
+        expect(PriceParser.parseAll('250 ml'), isEmpty);
+        expect(PriceParser.parseAll('2 шт'), isEmpty);
+        expect(PriceParser.parseAll('-20%'), isEmpty);
+      });
+
+      test('does not mistake грн for grams (kept as a price)', () {
+        // "грн" is a Cyrillic word cue we don't map (the Latin OCR rarely reads
+        // it anyway), so the source falls back to the selected From — but the
+        // key point is the number is NOT dropped as "100 г" (grams).
+        final r = PriceParser.parseAll('100 грн');
+        expect(r, hasLength(1));
+        expect(r.first.amount, 100);
+        expect(r.first.code, isNull);
+      });
+
+      test('keeps a price-per-unit when a currency cue is present', () {
+        final r = PriceParser.parseAll('199₽/кг');
+        expect(r, hasLength(1));
+        expect(r.first.amount, 199);
+        expect(r.first.code, 'RUB');
+      });
+
+      test('drops long barcode-like digit runs', () {
+        expect(PriceParser.parseAll('4607034170012'), isEmpty);
+      });
+
+      test('keeps normal integer prices', () {
+        expect(PriceParser.parseAll('1500'), hasLength(1));
+        expect(PriceParser.parseAll('2024'), hasLength(1));
+      });
+    });
   });
 }

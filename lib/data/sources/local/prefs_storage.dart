@@ -13,6 +13,7 @@ class PrefsStorage {
   static const _kThemeMode = 'theme_mode';
   static const _kRecent = 'recent_currencies';
   static const _kLanguage = 'language_code';
+  static const _kLiveScan = 'live_scan';
 
   String get defaultFrom => _prefs.getString(_kFrom) ?? 'USD';
   Future<void> setDefaultFrom(String code) => _prefs.setString(_kFrom, code);
@@ -34,4 +35,10 @@ class PrefsStorage {
   String get languageCode => _prefs.getString(_kLanguage) ?? 'ru';
   Future<void> setLanguageCode(String code) =>
       _prefs.setString(_kLanguage, code);
+
+  /// Continuous live camera scanning. Off by default — tap-to-scan is the
+  /// reliable baseline; live is experimental (docs §6.3).
+  bool get liveScan => _prefs.getBool(_kLiveScan) ?? false;
+  Future<void> setLiveScan(bool enabled) =>
+      _prefs.setBool(_kLiveScan, enabled);
 }
