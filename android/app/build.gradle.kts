@@ -29,6 +29,13 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            // R8/minification breaks ML Kit text recognition in release (it
+            // throws an internal NPE during recognizer init). This app is small
+            // and doesn't need code/resource shrinking, so disable it outright —
+            // far more reliable than chasing keep rules. The proguard-rules.pro
+            // keeps below are a safety net should shrinking ever be re-enabled.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
