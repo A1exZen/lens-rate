@@ -59,10 +59,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   List<RawDetection> _detections = const [];
   List<DetectedPrice> _prices = const [];
 
-  // TEMP DIAGNOSTIC: surfaces what the (otherwise silent) scan pipeline did,
-  // so a release build reveals where scanning breaks. Remove once resolved.
-  String? _diag;
-
   bool get _isFrozen => _capturedPath != null;
 
   @override
@@ -132,16 +128,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         _stabilizer.reset();
         await controller.startImageStream(_onFrame);
       }
-    } catch (e) {
+    } catch (_) {
       // Any failure (missing plugin, no camera, denied hardware) → error state,
       // never leave the spinner running forever.
-      // TEMP DIAGNOSTIC: keep the underlying error message visible.
-      if (mounted) {
-        setState(() {
-          _status = _Status.error;
-          _diag = 'setup error: $e';
-        });
-      }
+      if (mounted) setState(() => _status = _Status.error);
     }
   }
 
@@ -165,7 +155,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           file.path, controller.description.sensorOrientation);
       final detections = await _scanner.scan(file.path);
       final prices = _convert(detections, size);
-      final rates = ref.read(ratesProvider).value;
 
       if (prices.isNotEmpty) HapticFeedback.lightImpact();
       if (!mounted) return;
@@ -174,14 +163,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         _imageSize = size;
         _detections = detections;
         _prices = prices;
-        // TEMP DIAGNOSTIC
-        _diag = 'shot ${size.width.toInt()}x${size.height.toInt()} · '
-            'ocr=${detections.length} · prices=${prices.length} · '
-            'rates=${rates == null ? "null" : "ok"}';
       });
-    } catch (e) {
-      // TEMP DIAGNOSTIC: was silently swallowed (only CameraException before).
-      if (mounted) setState(() => _diag = 'scan error: $e');
+    } on CameraException {
+      // Capture failed — stay live; the user can retry.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -218,24 +202,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       final prices = _convert(detections, frame.uprightSize);
       if (!mounted) return;
 
-      // TEMP DIAGNOSTIC: per-frame OCR result for live mode.
-      final diag = 'live ${frame.uprightSize.width.toInt()}x'
-          '${frame.uprightSize.height.toInt()} · '
-          'ocr=${detections.length} · prices=${prices.length}';
       // Smoothing/locking decides what (if anything) to show — see LiveStabilizer.
       if (_stabilizer.update(prices, DateTime.now())) {
         setState(() {
           _imageSize = frame.uprightSize;
           _detections = detections;
           _prices = _stabilizer.shown;
-          _diag = diag;
         });
-      } else if (_diag != diag) {
-        setState(() => _diag = diag);
       }
-    } catch (e) {
-      // TEMP DIAGNOSTIC: surface why a frame couldn't be processed.
-      if (mounted) setState(() => _diag = 'live error: $e');
+    } catch (_) {
+      // Skip an unprocessable frame; the next one will try again.
     } finally {
       _lastFrame = DateTime.now();
       _processing = false;
@@ -276,37 +252,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          switch (_status) {
-            _Status.denied => const CameraPermissionView(),
-            _Status.error => Center(
-                child: Text(AppL10n.of(context).cameraUnavailable,
-                    style: const TextStyle(color: AppColors.white))),
-            _Status.initializing => const Center(
-                child: CircularProgressIndicator(color: AppColors.white)),
-            _Status.ready => _buildCamera(),
-          },
-          // TEMP DIAGNOSTIC banner — remove once scanning is fixed.
-          if (_diag != null)
-            Positioned(
-              left: 8,
-              right: 8,
-              bottom: 120,
-              child: IgnorePointer(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.black87,
-                  child: Text(
-                    _diag!,
-                    style: const TextStyle(
-                        color: Colors.greenAccent, fontSize: 12),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      body: switch (_status) {
+        _Status.denied => const CameraPermissionView(),
+        _Status.error => Center(
+            child: Text(AppL10n.of(context).cameraUnavailable,
+                style: const TextStyle(color: AppColors.white))),
+        _Status.initializing => const Center(
+            child: CircularProgressIndicator(color: AppColors.white)),
+        _Status.ready => _buildCamera(),
+      },
     );
   }
 
