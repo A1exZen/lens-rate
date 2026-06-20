@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Camera reads price tags for on-device OCR (docs §3.1). -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Network access to fetch exchange rates (docs §6.4). Debug/profile
+         manifests add this automatically; release builds need it declared
+         here or rates fail silently and overlays never render. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="LensRate"
